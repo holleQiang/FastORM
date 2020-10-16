@@ -2,6 +2,7 @@ package com.zhangqiang.fastdatabase.dao;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.support.annotation.NonNull;
@@ -15,7 +16,9 @@ import java.util.List;
 
 public abstract class Dao<E extends DBEntity> {
 
-    private static final String COLUMN_NAME_ID = "_id";
+    public static final String COLUMN_NAME_ID = "_id";
+    public static final String COLUMN_NAME_CREATE_TIME = "_create_time";
+    public static final String COLUMN_NAME_UPDATE_TIME = "_update_time";
     private String mTableName;
     private SQLiteOpenHelper mSqLiteOpenHelper;
 
@@ -102,6 +105,7 @@ public abstract class Dao<E extends DBEntity> {
 
         fillContentValues(contentValues, entity);
         contentValues.put(COLUMN_NAME_ID, entity.getId());
+        contentValues.put(COLUMN_NAME_UPDATE_TIME, System.currentTimeMillis());
         return contentValues;
     }
 
@@ -114,10 +118,43 @@ public abstract class Dao<E extends DBEntity> {
 
         ContentValuesRecord record = ContentValuesRecord.obtain();
         ContentValues contentValues = fillContentValuesInternal(record.value, entity);
-
+        contentValues.put(COLUMN_NAME_CREATE_TIME, System.currentTimeMillis());
         long rowId = database.insert(getTableName(), null, contentValues);
         record.recycle();
         return rowId;
+    }
+
+    public boolean insert(List<E> entities) {
+        if (entities == null || entities.isEmpty()) {
+            return false;
+        }
+        SQLiteDatabase database = getWriteDatabase();
+        if (database == null) {
+            return false;
+        }
+        try {
+            database.beginTransaction();
+
+            for (int i = 0; i < entities.size(); i++) {
+                E entity = entities.get(i);
+
+                ContentValuesRecord record = ContentValuesRecord.obtain();
+                ContentValues contentValues = fillContentValuesInternal(record.value, entity);
+                contentValues.put(COLUMN_NAME_CREATE_TIME, System.currentTimeMillis());
+                long rowId = database.insert(getTableName(), null, contentValues);
+                record.recycle();
+                if (rowId == -1) {
+                    return false;
+                }
+            }
+            database.setTransactionSuccessful();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            database.endTransaction();
+        }
+        return false;
     }
 
     public E queryById(String id) {
@@ -169,6 +206,8 @@ public abstract class Dao<E extends DBEntity> {
     private E toDBEntityInternal(Cursor cursor) {
         E entity = toDBEntity(cursor);
         entity.setId(cursor.getString(cursor.getColumnIndex(COLUMN_NAME_ID)));
+        entity.setCreateTime(cursor.getLong(cursor.getColumnIndex(COLUMN_NAME_CREATE_TIME)));
+        entity.setUpdateTime(cursor.getLong(cursor.getColumnIndex(COLUMN_NAME_UPDATE_TIME)));
         return entity;
     }
 
@@ -226,8 +265,7 @@ public abstract class Dao<E extends DBEntity> {
 
     public String makeTableCreateSql() {
 
-        List<ColumnEntry> mColumnEntries = new ArrayList<>();
-        mColumnEntries.add(buildIDEntry());
+        List<ColumnEntry> mColumnEntries = buildCommonColumnEntries();
         List<ColumnEntry> privateColumnEntries = buildPrivateColumnEntries();
         if (privateColumnEntries != null) {
             for (int i = 0; i < privateColumnEntries.size(); i++) {
@@ -285,6 +323,29 @@ public abstract class Dao<E extends DBEntity> {
         entry.setType(ColumnType.TEXT);
         entry.setIndex(true);
         return entry;
+    }
+
+    private static ColumnEntry buildCreateTimeEntry() {
+        ColumnEntry entry = new ColumnEntry();
+        entry.setName(COLUMN_NAME_CREATE_TIME);
+        entry.setType(ColumnType.INTEGER);
+        return entry;
+    }
+
+    private static ColumnEntry buildUpdateTimeEntry() {
+        ColumnEntry entry = new ColumnEntry();
+        entry.setName(COLUMN_NAME_UPDATE_TIME);
+        entry.setType(ColumnType.INTEGER);
+        return entry;
+    }
+
+    private List<ColumnEntry> buildCommonColumnEntries() {
+        ArrayList<ColumnEntry> columnEntries = new ArrayList<>();
+
+        columnEntries.add(buildIDEntry());
+        columnEntries.add(buildCreateTimeEntry());
+        columnEntries.add(buildUpdateTimeEntry());
+        return columnEntries;
     }
 
     public void deleteAll() {

@@ -12,7 +12,7 @@ public class AppDBOpenHelper extends DBOpenHelper {
 
 
     public AppDBOpenHelper(@Nullable Context context) {
-        super(context, "sample", null, 1);
+        super(context, "sample", null, 2);
     }
 
     @Override
