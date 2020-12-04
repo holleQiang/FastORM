@@ -1,9 +1,12 @@
 package com.zhangqiang.fastdatabase.sample;
 
 import com.zhangqiang.fastdatabase.entity.DBEntity;
+import com.zhangqiang.fastdatabase.entity.Index;
 
+@com.zhangqiang.fastdatabase.annotation.DBEntity
 public class ReadRecordEntity extends DBEntity {
 
+    @Index
     private String bookName;
     private int chapterIndex;
     private String chapterName;

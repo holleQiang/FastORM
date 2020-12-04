@@ -27,4 +27,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation project(path: ':library')
     implementation 'com.github.holleQiang:CellAdapter:1.1.5'
+    implementation project(':annotation')
+    annotationProcessor project(':compiler')
 }
